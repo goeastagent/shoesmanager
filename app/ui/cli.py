@@ -93,6 +93,7 @@ def add(
     vendor: Optional[str] = typer.Option(None, "--vendor", "-v", help="구매처"),
     price: Optional[str] = typer.Option(None, "--price", help="가격"),
     size: Optional[str] = typer.Option(None, "--size", "-s", help="사이즈"),
+    barcode: Optional[str] = typer.Option(None, "--barcode", "-b", help="바코드"),
     sale_date: Optional[str] = typer.Option(None, "--sale-date", help="판매일 (YYYY-MM-DD)"),
     notes: Optional[str] = typer.Option(None, "--notes", help="메모")
 ):
@@ -149,6 +150,7 @@ def add(
             model_name=model_name,
             name=name,
             size=size,
+            barcode=barcode,
             vendor=vendor,
             price=parsed_price,
             notes=notes
@@ -157,7 +159,7 @@ def add(
         # 세션 컨텍스트 매니저 사용
         with db_manager.get_session_context() as session:
             repository = InventoryRepository(session)
-            created_item = repository.create(item_data)
+            created_item = repository.create_with_barcode_update(item_data)
             
             typer.echo("✅ 재고 항목이 성공적으로 추가되었습니다.")
             typer.echo(f"ID: {created_item.id}")
@@ -172,6 +174,32 @@ def add(
 
 
 @app.command()
+def get_barcode(
+    barcode: str = typer.Argument(..., help="조회할 바코드")
+):
+    """바코드 정보 조회"""
+    try:
+        with db_manager.get_session_context() as session:
+            repository = InventoryRepository(session)
+            barcode_info = repository.get_barcode_info(barcode)
+            
+            if not barcode_info:
+                typer.echo(f"❌ 바코드 '{barcode}'를 찾을 수 없습니다.", err=True)
+                raise typer.Exit(1)
+            
+            typer.echo("✅ 바코드 정보 조회 완료")
+            typer.echo(f"바코드: {barcode_info.barcode}")
+            typer.echo(f"모델명: {barcode_info.model_name}")
+            typer.echo(f"제품명: {barcode_info.name}")
+            typer.echo(f"생성일: {barcode_info.created_at}")
+            typer.echo(f"수정일: {barcode_info.updated_at}")
+            
+    except Exception as e:
+        typer.echo(f"❌ 바코드 조회 실패: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
 def list(
     keyword: Optional[str] = typer.Option(None, "--keyword", "-k", help="검색 키워드"),
     location: Optional[str] = typer.Option(None, "--location", "-l", help="위치"),
@@ -179,6 +207,7 @@ def list(
     name: Optional[str] = typer.Option(None, "--name", "-n", help="제품명"),
     vendor: Optional[str] = typer.Option(None, "--vendor", "-v", help="구매처"),
     size: Optional[str] = typer.Option(None, "--size", "-s", help="사이즈"),
+    barcode: Optional[str] = typer.Option(None, "--barcode", "-b", help="바코드"),
     purchase_date_from: Optional[str] = typer.Option(None, "--purchase-date-from", help="구매일 시작"),
     purchase_date_to: Optional[str] = typer.Option(None, "--purchase-date-to", help="구매일 종료"),
     sale_date_from: Optional[str] = typer.Option(None, "--sale-date-from", help="판매일 시작"),
@@ -199,6 +228,7 @@ def list(
             name=name,
             vendor=vendor,
             size=size,
+            barcode=barcode,
             purchase_date_from=parse_date_string(purchase_date_from),
             purchase_date_to=parse_date_string(purchase_date_to),
             sale_date_from=parse_date_string(sale_date_from),
@@ -222,7 +252,7 @@ def list(
         # 테이블 헤더
         headers = [
             "ID", "위치", "구매일", "판매일", "모델명", "이름",
-            "사이즈", "구매처", "가격", "상태"
+            "사이즈", "바코드", "구매처", "가격", "상태"
         ]
         
         # 테이블 데이터
@@ -237,6 +267,7 @@ def list(
                 item.model_name,
                 item.name,
                 item.size or '',
+                item.barcode or '',
                 item.vendor,
                 f"₩{item.price:,.0f}",
                 status

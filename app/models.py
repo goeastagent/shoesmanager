@@ -10,8 +10,9 @@ import uuid
 
 from sqlalchemy import (
     Column, String, Date, DateTime, Text, 
-    DECIMAL, Index, func
+    DECIMAL, Index, func, ForeignKey
 )
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import validates
 
@@ -41,6 +42,7 @@ class InventoryItem(Base):
     # 선택적 필드
     sale_date = Column(Date, nullable=True, comment="판매일")
     size = Column(String(20), nullable=True, comment="사이즈")
+    barcode = Column(String(50), nullable=True, comment="바코드")
     notes = Column(Text, nullable=True, comment="메모")
     
     # 시스템 필드
@@ -139,3 +141,54 @@ class InventoryItem(Base):
             data['price'] = Decimal(str(data['price']))
         
         return cls(**data)
+
+
+class Barcode(Base):
+    """
+    바코드 정보 모델
+    
+    바코드와 제품 정보를 매핑하는 테이블입니다.
+    바코드가 primary key이며, 동일한 바코드로 다른 제품명/모델명이 입력되면 덮어씁니다.
+    """
+    
+    __tablename__ = 'barcodes'
+    
+    # 바코드가 primary key
+    barcode = Column(String(50), primary_key=True, comment="바코드 (Primary Key)")
+    
+    # 제품 정보
+    model_name = Column(String(100), nullable=False, comment="모델명")
+    name = Column(String(100), nullable=False, comment="제품명")
+    
+    # 시스템 필드
+    created_at = Column(DateTime, nullable=False, default=func.now(), comment="생성일시")
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now(), comment="수정일시")
+    
+    @validates('model_name', 'name')
+    def validate_required_fields(self, key, value):
+        """필수 필드 검증: 공백 불가"""
+        if not value or not value.strip():
+            raise ValueError(f"{key}는 필수 필드이며 공백일 수 없습니다.")
+        return value.strip()
+    
+    def __repr__(self) -> str:
+        """객체 문자열 표현"""
+        return (
+            f"<Barcode(barcode='{self.barcode}', name='{self.name}', "
+            f"model='{self.model_name}')>"
+        )
+    
+    def to_dict(self) -> dict:
+        """
+        객체를 딕셔너리로 변환
+        
+        Returns:
+            dict: 객체의 속성을 담은 딕셔너리
+        """
+        return {
+            'barcode': self.barcode,
+            'model_name': self.model_name,
+            'name': self.name,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }

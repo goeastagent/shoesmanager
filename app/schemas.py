@@ -20,6 +20,7 @@ class InventoryItemBase(BaseModel):
     model_name: str = Field(..., min_length=1, max_length=100, description="모델명")
     name: str = Field(..., min_length=1, max_length=100, description="제품명")
     size: Optional[str] = Field(None, max_length=20, description="사이즈")
+    barcode: Optional[str] = Field(None, max_length=50, description="바코드")
     vendor: str = Field(..., min_length=1, max_length=100, description="구매처")
     price: Decimal = Field(..., ge=0, decimal_places=2, description="가격")
     notes: Optional[str] = Field(None, description="메모")
@@ -62,6 +63,7 @@ class InventoryItemUpdate(BaseModel):
     model_name: Optional[str] = Field(None, min_length=1, max_length=100, description="모델명")
     name: Optional[str] = Field(None, min_length=1, max_length=100, description="제품명")
     size: Optional[str] = Field(None, max_length=20, description="사이즈")
+    barcode: Optional[str] = Field(None, max_length=50, description="바코드")
     vendor: Optional[str] = Field(None, min_length=1, max_length=100, description="구매처")
     price: Optional[Decimal] = Field(None, ge=0, decimal_places=2, description="가격")
     notes: Optional[str] = Field(None, description="메모")
@@ -106,6 +108,7 @@ class SearchQuery(BaseModel):
     name: Optional[str] = Field(None, description="제품명")
     vendor: Optional[str] = Field(None, description="구매처")
     size: Optional[str] = Field(None, description="사이즈")
+    barcode: Optional[str] = Field(None, description="바코드")
     
     # 날짜 범위 검색
     purchase_date_from: Optional[date] = Field(None, description="구매일 시작")
@@ -186,3 +189,44 @@ class ExportRequest(BaseModel):
     search_query: Optional[SearchQuery] = Field(None, description="검색 조건")
     format: Literal["csv", "html"] = Field(default="csv", description="내보내기 형식")
     include_headers: bool = Field(default=True, description="헤더 포함 여부")
+
+
+class BarcodeBase(BaseModel):
+    """바코드 기본 스키마"""
+    
+    barcode: str = Field(..., min_length=1, max_length=50, description="바코드")
+    model_name: str = Field(..., min_length=1, max_length=100, description="모델명")
+    name: str = Field(..., min_length=1, max_length=100, description="제품명")
+    
+    @field_validator('barcode', 'model_name', 'name')
+    @classmethod
+    def validate_required_fields(cls, v):
+        """필수 필드 검증: 공백 불가"""
+        if not v or not v.strip():
+            raise ValueError('필수 필드는 공백일 수 없습니다.')
+        return v.strip()
+
+
+class BarcodeResponse(BarcodeBase):
+    """바코드 응답 스키마"""
+    
+    created_at: datetime = Field(..., description="생성일시")
+    updated_at: datetime = Field(..., description="수정일시")
+    
+    class Config:
+        from_attributes = True
+
+
+class BarcodeUpdateRequest(BaseModel):
+    """바코드 업데이트 요청 스키마"""
+    
+    model_name: str = Field(..., min_length=1, max_length=100, description="모델명")
+    name: str = Field(..., min_length=1, max_length=100, description="제품명")
+    
+    @field_validator('model_name', 'name')
+    @classmethod
+    def validate_required_fields(cls, v):
+        """필수 필드 검증: 공백 불가"""
+        if not v or not v.strip():
+            raise ValueError('필수 필드는 공백일 수 없습니다.')
+        return v.strip()

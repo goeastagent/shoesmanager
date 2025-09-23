@@ -109,6 +109,8 @@ class InventoryApp:
         edit_menu.add_command(label="새 항목 추가", command=self.add_item)
         edit_menu.add_command(label="선택 항목 수정", command=self.edit_item)
         edit_menu.add_command(label="선택 항목 삭제", command=self.delete_item)
+        edit_menu.add_separator()
+        edit_menu.add_command(label="바코드로 판매", command=self.sell_by_barcode)
         
         # 보기 메뉴
         view_menu = tk.Menu(menubar, tearoff=0)
@@ -125,6 +127,7 @@ class InventoryApp:
         ttk.Button(toolbar_frame, text="➕ 새 항목", command=self.add_item).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(toolbar_frame, text="✏️ 수정", command=self.edit_item).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(toolbar_frame, text="🗑️ 삭제", command=self.delete_item).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(toolbar_frame, text="💰 판매", command=self.sell_by_barcode).pack(side=tk.LEFT, padx=(0, 5))
         
         # 구분선
         ttk.Separator(toolbar_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=10)
@@ -178,6 +181,10 @@ class InventoryApp:
         self.size_var = tk.StringVar()
         ttk.Entry(row2, textvariable=self.size_var, width=10).pack(side=tk.LEFT, padx=(0, 20))
         
+        ttk.Label(row2, text="바코드:").pack(side=tk.LEFT, padx=(0, 5))
+        self.barcode_var = tk.StringVar()
+        ttk.Entry(row2, textvariable=self.barcode_var, width=15).pack(side=tk.LEFT, padx=(0, 20))
+        
         # 세 번째 행 (날짜 범위)
         row3 = ttk.Frame(search_frame)
         row3.pack(fill=tk.X, pady=(0, 5))
@@ -220,11 +227,11 @@ class InventoryApp:
         list_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         
         # 트리뷰 생성
-        columns = ("ID", "위치", "구매일", "판매일", "모델명", "이름", "사이즈", "구매처", "가격", "상태")
+        columns = ("ID", "위치", "구매일", "판매일", "모델명", "이름", "사이즈", "바코드", "구매처", "가격", "상태")
         self.tree = ttk.Treeview(list_frame, columns=columns, show="headings", height=15)
         
         # 컬럼 설정
-        column_widths = [50, 80, 100, 100, 120, 150, 60, 100, 100, 60]
+        column_widths = [50, 80, 100, 100, 120, 150, 60, 120, 100, 100, 60]
         for i, (col, width) in enumerate(zip(columns, column_widths)):
             self.tree.heading(col, text=col, command=lambda c=col: self.sort_by_column(c))
             self.tree.column(col, width=width, minwidth=50)
@@ -333,6 +340,7 @@ class InventoryApp:
                 name=self.name_var.get() or None,
                 vendor=self.vendor_var.get() or None,
                 size=self.size_var.get() or None,
+                barcode=self.barcode_var.get() or None,
                 purchase_date_from=self._parse_date(self.purchase_date_from_var.get()) if self.purchase_date_from_var.get() else None,
                 purchase_date_to=self._parse_date(self.purchase_date_to_var.get()) if self.purchase_date_to_var.get() else None,
                 sale_date_from=self._parse_date(self.sale_date_from_var.get()) if self.sale_date_from_var.get() else None,
@@ -395,6 +403,7 @@ class InventoryApp:
                     item.model_name,
                     item.name,
                     item.size or '',
+                    item.barcode or '',
                     item.vendor,
                     f"₩{item.price:,.0f}",
                     status
@@ -414,6 +423,7 @@ class InventoryApp:
         self.name_var.set("")
         self.vendor_var.set("")
         self.size_var.set("")
+        self.barcode_var.set("")
         self.purchase_date_from_var.set("")
         self.purchase_date_to_var.set("")
         self.sale_date_from_var.set("")
@@ -433,6 +443,7 @@ class InventoryApp:
             "모델명": "model_name",
             "이름": "name",
             "사이즈": "size",
+            "바코드": "barcode",
             "구매처": "vendor",
             "가격": "price",
             "상태": "created_at"  # 상태는 정렬 기준이 없으므로 생성일로 대체
@@ -534,6 +545,7 @@ class InventoryApp:
                                 'model_name': detail_item.model_name,
                                 'name': detail_item.name,
                                 'size': detail_item.size,
+                                'barcode': detail_item.barcode,
                                 'vendor': detail_item.vendor,
                                 'price': detail_item.price,
                                 'notes': detail_item.notes,
@@ -567,6 +579,7 @@ class InventoryApp:
 모델명: {item_data['model_name']}
 이름: {item_data['name']}
 사이즈: {item_data['size'] or '미지정'}
+바코드: {item_data['barcode'] or '미지정'}
 구매처: {item_data['vendor']}
 가격: ₩{item_data['price']:,.0f}
 상태: {'판매됨' if item_data['sale_date'] else '재고'}
@@ -673,6 +686,7 @@ class InventoryApp:
 모델명: {item_data['model_name']}
 이름: {item_data['name']}
 사이즈: {item_data['size'] or '미지정'}
+바코드: {item_data['barcode'] or '미지정'}
 구매처: {item_data['vendor']}
 가격: ₩{item_data['price']:,.0f}
 상태: {'판매됨' if item_data['sale_date'] else '재고'}
@@ -708,7 +722,7 @@ class InventoryApp:
                     try:
                         with db_manager.get_session_context() as session:
                             repository = InventoryRepository(session)
-                            repository.create(dialog.result)
+                            repository.create_with_barcode_update(dialog.result)
                         self.root.after(0, lambda: self.refresh_data())
                         self.root.after(0, lambda: self.status_var.set("항목 추가 완료"))
                     except Exception as e:
@@ -895,6 +909,36 @@ class InventoryApp:
         dialog = StatisticsDialog(self.root, stats, vendors, locations)
         self.status_var.set("통계 조회 완료")
     
+    def sell_by_barcode(self):
+        """바코드로 판매"""
+        dialog = SellDialog(self.root)
+        if dialog.result:
+            try:
+                self.status_var.set("판매 처리 중...")
+                
+                def sell_item():
+                    try:
+                        with db_manager.get_session_context() as session:
+                            repository = InventoryRepository(session)
+                            success = repository.sell_item(dialog.result['item_id'], dialog.result['sale_date'])
+                            
+                        if success:
+                            self.root.after(0, lambda: self.refresh_data())
+                            self.root.after(0, lambda: self.status_var.set("판매 처리 완료"))
+                        else:
+                            self.root.after(0, lambda: messagebox.showerror("오류", "판매 처리에 실패했습니다."))
+                            self.root.after(0, lambda: self.status_var.set("판매 처리 실패"))
+                            
+                    except Exception as e:
+                        logger.error(f"판매 처리 실패: {e}")
+                        self.root.after(0, lambda: messagebox.showerror("오류", f"판매 처리 실패: {e}"))
+                        self.root.after(0, lambda: self.status_var.set("판매 처리 실패"))
+                
+                threading.Thread(target=sell_item, daemon=True).start()
+                
+            except Exception as e:
+                messagebox.showerror("오류", f"판매 처리 실패: {e}")
+    
     def on_closing(self):
         """애플리케이션 종료"""
         try:
@@ -946,6 +990,7 @@ class ItemDialog:
             ("model_name", "모델명"),
             ("name", "제품명"),
             ("size", "사이즈"),
+            ("barcode", "바코드"),
             ("vendor", "구매처"),
             ("price", "가격"),
             ("notes", "메모")
@@ -958,6 +1003,8 @@ class ItemDialog:
             fields.append((field, label, required))
         
         self.vars = {}
+        self.barcode_entry = None  # 바코드 엔트리 위젯 저장용
+        
         for i, (field, label, required) in enumerate(fields):
             ttk.Label(main_frame, text=f"{label}{'*' if required else ''}:").grid(
                 row=i, column=0, sticky=tk.W, pady=5
@@ -974,6 +1021,11 @@ class ItemDialog:
                 entry = ttk.Entry(main_frame, textvariable=var, width=40)
                 entry.grid(row=i, column=1, sticky=tk.W+tk.E, pady=5)
                 self.vars[field] = var
+                
+                # 바코드 필드에 이벤트 리스너 추가 및 엔트리 위젯 저장
+                if field == "barcode":
+                    var.trace_add('write', self.on_barcode_changed)
+                    self.barcode_entry = entry
         
         # 기존 데이터 로드 또는 기본값 설정
         if item:
@@ -984,6 +1036,7 @@ class ItemDialog:
             self.vars["model_name"].set(item.model_name or '')
             self.vars["name"].set(item.name or '')
             self.vars["size"].set(item.size or '')
+            self.vars["barcode"].set(item.barcode or '')
             self.vars["vendor"].set(item.vendor or '')
             self.vars["price"].set(str(item.price) if item.price else '')
             self.vars["notes"].insert(1.0, item.notes or '')
@@ -1000,6 +1053,10 @@ class ItemDialog:
         
         ttk.Button(button_frame, text="저장", command=self.save).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="취소", command=self.cancel).pack(side=tk.LEFT, padx=5)
+        
+        # 새 항목 추가 모드일 때 바코드 필드에 포커스 설정
+        if not item and self.barcode_entry:
+            self.dialog.after(100, lambda: self.barcode_entry.focus_set())
     
     def save(self):
         """저장"""
@@ -1048,6 +1105,199 @@ class ItemDialog:
             
         except Exception as e:
             messagebox.showerror("오류", f"데이터 저장 실패: {e}")
+    
+    def on_barcode_changed(self, *args):
+        """바코드 변경 시 기존 바코드 정보 자동 채우기"""
+        try:
+            barcode = self.vars["barcode"].get().strip()
+            if not barcode or len(barcode) < 5:  # 최소 5자리 이상일 때만 검색
+                return
+            
+            # 데이터베이스에서 바코드 정보 조회
+            from app.db import db_manager
+            from app.repository import InventoryRepository
+            
+            with db_manager.get_session_context() as session:
+                repository = InventoryRepository(session)
+                
+                # 가장 최근의 재고 항목 조회 (사이즈, 가격 포함)
+                latest_item = repository.get_latest_inventory_by_barcode(barcode)
+                
+                if latest_item:
+                    # 기존 재고 항목이 있으면 모든 정보 자동 채우기
+                    # 현재 필드가 비어있을 때만 채우기 (기존 데이터 보호)
+                    if not self.vars["model_name"].get().strip():
+                        self.vars["model_name"].set(latest_item.model_name)
+                    if not self.vars["name"].get().strip():
+                        self.vars["name"].set(latest_item.name)
+                    if not self.vars["size"].get().strip():
+                        self.vars["size"].set(latest_item.size or '')
+                    if not self.vars["price"].get().strip():
+                        self.vars["price"].set(str(latest_item.price) if latest_item.price else '')
+                    if not self.vars["vendor"].get().strip():
+                        self.vars["vendor"].set(latest_item.vendor)
+                        
+        except Exception as e:
+            # 바코드 조회 실패는 무시 (사용자 입력 중일 수 있음)
+            pass
+    
+    def cancel(self):
+        """취소"""
+        self.dialog.destroy()
+
+
+class SellDialog:
+    """판매 다이얼로그"""
+    
+    def __init__(self, parent):
+        self.result = None
+        
+        # 다이얼로그 창 생성
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("바코드로 판매")
+        self.dialog.geometry("600x400")
+        self.dialog.resizable(False, False)
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        # 중앙에 배치
+        self.dialog.geometry("+%d+%d" % (parent.winfo_rootx() + 50, parent.winfo_rooty() + 50))
+        
+        # 폼 생성
+        self.create_form()
+        
+        # 다이얼로그가 닫힐 때까지 대기
+        self.dialog.wait_window()
+    
+    def create_form(self):
+        """폼 생성"""
+        main_frame = ttk.Frame(self.dialog, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 바코드 입력
+        ttk.Label(main_frame, text="바코드:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        self.barcode_var = tk.StringVar()
+        self.barcode_entry = ttk.Entry(main_frame, textvariable=self.barcode_var, width=40)
+        self.barcode_entry.grid(row=0, column=1, sticky=tk.W+tk.E, pady=5)
+        
+        # 바코드 변경 이벤트
+        self.barcode_var.trace_add('write', self.on_barcode_changed)
+        
+        # 검색 버튼
+        ttk.Button(main_frame, text="검색", command=self.search_items).grid(row=0, column=2, padx=5)
+        
+        # 결과 목록
+        ttk.Label(main_frame, text="재고 목록:").grid(row=1, column=0, sticky=tk.W, pady=(20, 5))
+        
+        # 트리뷰 생성
+        columns = ("ID", "위치", "구매일", "모델명", "이름", "사이즈", "가격", "구매처")
+        self.tree = ttk.Treeview(main_frame, columns=columns, show="headings", height=8)
+        
+        # 컬럼 설정
+        column_widths = [50, 80, 100, 120, 150, 60, 100, 100]
+        for i, (col, width) in enumerate(zip(columns, column_widths)):
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=width, minwidth=50)
+        
+        # 스크롤바
+        scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        
+        # 배치
+        self.tree.grid(row=2, column=0, columnspan=3, sticky=tk.W+tk.E+tk.N+tk.S, pady=5)
+        scrollbar.grid(row=2, column=3, sticky=tk.N+tk.S)
+        
+        # 이벤트 바인딩
+        self.tree.bind("<<TreeviewSelect>>", self.on_item_select)
+        
+        # 버튼
+        button_frame = ttk.Frame(main_frame)
+        button_frame.grid(row=3, column=0, columnspan=3, pady=20)
+        
+        self.sell_button = ttk.Button(button_frame, text="판매", command=self.sell_item, state=tk.DISABLED)
+        self.sell_button.pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="취소", command=self.cancel).pack(side=tk.LEFT, padx=5)
+        
+        # 바코드 필드에 포커스
+        self.dialog.after(100, lambda: self.barcode_entry.focus_set())
+    
+    def on_barcode_changed(self, *args):
+        """바코드 변경 시 자동 검색"""
+        barcode = self.barcode_var.get().strip()
+        if len(barcode) >= 5:  # 5자리 이상일 때만 자동 검색
+            self.search_items()
+    
+    def search_items(self):
+        """재고 항목 검색"""
+        try:
+            barcode = self.barcode_var.get().strip()
+            if not barcode:
+                return
+            
+            # 트리뷰 초기화
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+            
+            # 데이터베이스에서 검색
+            from app.db import db_manager
+            from app.repository import InventoryRepository
+            
+            with db_manager.get_session_context() as session:
+                repository = InventoryRepository(session)
+                items = repository.get_inventory_by_barcode(barcode)
+                
+                if not items:
+                    messagebox.showinfo("알림", f"바코드 '{barcode}'에 해당하는 재고가 없습니다.")
+                    return
+                
+                # 결과 추가
+                for item in items:
+                    self.tree.insert("", tk.END, values=(
+                        item.id,
+                        item.location,
+                        item.purchase_date.strftime('%Y-%m-%d') if item.purchase_date else '',
+                        item.model_name,
+                        item.name,
+                        item.size or '',
+                        f"₩{item.price:,.0f}",
+                        item.vendor
+                    ))
+                
+        except Exception as e:
+            messagebox.showerror("오류", f"검색 실패: {e}")
+    
+    def on_item_select(self, event):
+        """항목 선택 이벤트"""
+        selection = self.tree.selection()
+        if selection:
+            self.sell_button.config(state=tk.NORMAL)
+        else:
+            self.sell_button.config(state=tk.DISABLED)
+    
+    def sell_item(self):
+        """항목 판매"""
+        try:
+            selection = self.tree.selection()
+            if not selection:
+                messagebox.showwarning("경고", "판매할 항목을 선택하세요.")
+                return
+            
+            item = self.tree.item(selection[0])
+            item_id = item['values'][0]
+            
+            # 오늘 날짜로 판매 처리
+            from datetime import date
+            sale_date = date.today()
+            
+            self.result = {
+                'item_id': item_id,
+                'sale_date': sale_date
+            }
+            
+            self.dialog.destroy()
+            
+        except Exception as e:
+            messagebox.showerror("오류", f"판매 처리 실패: {e}")
     
     def cancel(self):
         """취소"""
