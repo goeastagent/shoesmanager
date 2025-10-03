@@ -1,18 +1,19 @@
 @echo off
+chcp 65001 >nul
 echo ========================================
-echo    신발 관리 시스템 빌드 스크립트
+echo    Shoes Management System Build Script
 echo ========================================
 echo.
 
-REM 가상환경 활성화
-echo 가상환경을 활성화합니다...
+REM Activate virtual environment
+echo Activating virtual environment...
 call venv\Scripts\activate.bat
 
-REM Python 빌드 스크립트 실행
-echo 빌드 스크립트를 실행합니다...
+REM Run Python build script
+echo Running build script...
 python build_windows.py
 
-REM 빌드 완료 후 일시정지
+REM Pause after build completion
 echo.
-echo 빌드가 완료되었습니다.
+echo Build completed.
 pause
