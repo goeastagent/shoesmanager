@@ -198,6 +198,103 @@ def build_executable():
         print(f"❌ Build failed: {e}")
         return False
 
+def initialize_database():
+    """Initialize database with fresh schema and sample data"""
+    print("🗄️ Initializing database...")
+    
+    try:
+        # Import required modules
+        sys.path.insert(0, str(Path.cwd()))
+        from app.db import db_manager
+        from app.models import Base
+        from app.repository import InventoryRepository
+        from app.schemas import InventoryItemCreate
+        from datetime import date, datetime
+        from decimal import Decimal
+        
+        # Create fresh database
+        db_file = Path("inventory_management_fresh.db")
+        if db_file.exists():
+            db_file.unlink()  # Remove existing file
+        
+        # Set database URL to fresh file
+        original_url = db_manager.database_url
+        db_manager.database_url = f"sqlite:///./{db_file.name}"
+        
+        # Create all tables
+        Base.metadata.create_all(db_manager.engine)
+        print("✅ Database tables created.")
+        
+        # Add sample data
+        with db_manager.get_session_context() as session:
+            repository = InventoryRepository(session)
+            
+            # Sample inventory items
+            sample_items = [
+                {
+                    "location": "A-01",
+                    "purchase_date": date(2024, 1, 15),
+                    "model_name": "Nike Air Max 270",
+                    "name": "Nike Air Max 270 White",
+                    "size": "US 9",
+                    "barcode": "1234567890123",
+                    "vendor": "Nike Store",
+                    "price": Decimal("120.00"),
+                    "notes": "Sample item for demonstration"
+                },
+                {
+                    "location": "A-02", 
+                    "purchase_date": date(2024, 1, 20),
+                    "model_name": "Adidas Ultraboost 22",
+                    "name": "Adidas Ultraboost 22 Black",
+                    "size": "US 10",
+                    "barcode": "2345678901234",
+                    "vendor": "Adidas Store",
+                    "price": Decimal("180.00"),
+                    "notes": "Popular running shoe"
+                },
+                {
+                    "location": "B-01",
+                    "purchase_date": date(2024, 2, 1),
+                    "model_name": "Converse Chuck Taylor",
+                    "name": "Converse Chuck Taylor All Star",
+                    "size": "US 8",
+                    "barcode": "3456789012345",
+                    "vendor": "Converse Store",
+                    "price": Decimal("65.00"),
+                    "notes": "Classic canvas shoe"
+                }
+            ]
+            
+            # Add sample items
+            for item_data in sample_items:
+                try:
+                    item_schema = InventoryItemCreate(**item_data)
+                    repository.create_with_barcode_update(item_schema)
+                except Exception as e:
+                    print(f"⚠️ Could not add sample item: {e}")
+            
+            print("✅ Sample data added to database.")
+        
+        # Restore original database URL
+        db_manager.database_url = original_url
+        
+        # Copy fresh database to dist folder
+        dist_db = Path("dist/inventory_management.db")
+        if dist_db.exists():
+            dist_db.unlink()
+        shutil.copy2(db_file, dist_db)
+        
+        # Clean up temporary file
+        db_file.unlink()
+        
+        print("✅ Fresh database created and copied to dist folder.")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
+        return False
+
 def create_distribution():
     """Create optimized distribution package"""
     print("📦 Creating optimized distribution package...")
@@ -206,6 +303,14 @@ def create_distribution():
     dist_dir = Path("dist")
     if not dist_dir.exists():
         dist_dir.mkdir()
+    
+    # Initialize fresh database
+    if not initialize_database():
+        print("⚠️ Using existing database file.")
+        # Copy existing database if initialization failed
+        existing_db = Path("inventory_management.db")
+        if existing_db.exists():
+            shutil.copy2(existing_db, Path("dist/inventory_management.db"))
     
     # Copy executable
     exe_file = Path("dist/ShoesManager.exe")
@@ -218,6 +323,7 @@ def create_distribution():
 ## Quick Start
 1. Double-click ShoesManager.exe to run
 2. The application will start with the inventory management interface
+3. Sample data is included for testing
 
 ## Features
 - Inventory management (Add/Edit/Delete items)
@@ -226,6 +332,12 @@ def create_distribution():
 - CSV import/export functionality
 - HTML report generation
 - Search and filter capabilities
+
+## Sample Data
+The application comes with sample inventory items:
+- Nike Air Max 270 White (Barcode: 1234567890123)
+- Adidas Ultraboost 22 Black (Barcode: 2345678901234)
+- Converse Chuck Taylor All Star (Barcode: 3456789012345)
 
 ## System Requirements
 - Windows 10 or higher
