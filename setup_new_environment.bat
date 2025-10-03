@@ -11,11 +11,32 @@ echo for the Shoes Management System.
 echo.
 
 REM Check if Python is installed
+echo Checking Python installation...
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Python is not installed or not in PATH!
-    echo Please install Python 3.8 or higher from https://python.org
-    echo Make sure to check "Add Python to PATH" during installation.
+    echo.
+    echo ==========================================
+    echo    Python Installation Required
+    echo ==========================================
+    echo.
+    echo Python is not installed or not in PATH.
+    echo.
+    echo Please follow these steps:
+    echo.
+    echo 1. Download Python from: https://www.python.org/downloads/
+    echo 2. During installation, make sure to check:
+    echo    - "Add Python to PATH"
+    echo    - "Install for all users" (recommended)
+    echo.
+    echo 3. After installation, restart this script.
+    echo.
+    echo Alternative: Try these commands in Command Prompt:
+    echo   py --version
+    echo   python3 --version
+    echo   py -3 --version
+    echo.
+    echo If any of these work, you can use that command instead.
+    echo.
     pause
     exit /b 1
 )
