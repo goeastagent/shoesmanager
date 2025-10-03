@@ -241,13 +241,13 @@ def create_distribution():
     if dist_dir.exists():
         shutil.rmtree(dist_dir)
     
-    # Initialize fresh database
-    if not initialize_database():
-        print("⚠️ Using existing database file.")
-        # Copy existing database if initialization failed
-        existing_db = Path("inventory_management.db")
-        if existing_db.exists():
-            shutil.copy2(existing_db, Path("dist/inventory_management.db"))
+    # Copy database to dist folder (should already be initialized)
+    db_file = Path("inventory_management.db")
+    if db_file.exists():
+        shutil.copy2(db_file, Path("dist/inventory_management.db"))
+        print("✅ Database copied to dist folder.")
+    else:
+        print("❌ Database file not found! Please run init_database.py first.")
     
     # Copy executable file
     exe_file = Path("dist/ShoesManager.exe")
@@ -302,6 +302,11 @@ def main():
     if not Path("app/ui/tk_app.py").exists():
         print("❌ Please run from project root directory.")
         return False
+    
+    # Initialize database FIRST (before building executable)
+    print("🗄️ Initializing database before build...")
+    if not initialize_database():
+        print("⚠️ Database initialization failed, but continuing with build...")
     
     # Check and install PyInstaller
     if not check_pyinstaller():

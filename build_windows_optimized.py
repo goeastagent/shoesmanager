@@ -304,13 +304,13 @@ def create_distribution():
     if not dist_dir.exists():
         dist_dir.mkdir()
     
-    # Initialize fresh database
-    if not initialize_database():
-        print("⚠️ Using existing database file.")
-        # Copy existing database if initialization failed
-        existing_db = Path("inventory_management.db")
-        if existing_db.exists():
-            shutil.copy2(existing_db, Path("dist/inventory_management.db"))
+    # Copy database to dist folder (should already be initialized)
+    db_file = Path("inventory_management.db")
+    if db_file.exists():
+        shutil.copy2(db_file, Path("dist/inventory_management.db"))
+        print("✅ Database copied to dist folder.")
+    else:
+        print("❌ Database file not found! Please run init_database.py first.")
     
     # Copy executable
     exe_file = Path("dist/ShoesManager.exe")
@@ -376,6 +376,11 @@ def main():
     # Setup Windows environment
     setup_windows_environment()
     
+    # Initialize database FIRST (before building executable)
+    print("🗄️ Initializing database before build...")
+    if not initialize_database():
+        print("⚠️ Database initialization failed, but continuing with build...")
+    
     # Check and install PyInstaller
     if not check_pyinstaller():
         return False
@@ -387,7 +392,7 @@ def main():
     if not build_executable():
         return False
     
-    # Create distribution
+    # Create distribution (copy DB to dist folder)
     create_distribution()
     
     print("=" * 60)
