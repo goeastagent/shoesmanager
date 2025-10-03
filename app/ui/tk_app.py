@@ -963,8 +963,8 @@ class ItemDialog:
         # 다이얼로그 창 생성
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
-        self.dialog.geometry("500x600")
-        self.dialog.resizable(False, False)
+        self.dialog.geometry("500x700")
+        self.dialog.resizable(True, True)
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
@@ -979,18 +979,39 @@ class ItemDialog:
     
     def create_form(self, item):
         """폼 생성"""
-        main_frame = ttk.Frame(self.dialog, padding=20)
+        # 스크롤 가능한 프레임 생성
+        canvas = tk.Canvas(self.dialog)
+        scrollbar = ttk.Scrollbar(self.dialog, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # 마우스 휠 스크롤 지원
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        main_frame = ttk.Frame(scrollable_frame, padding=20)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # 필드들 (config.py의 설정 사용)
+        # 필드들 (config.py의 설정 사용) - 바코드를 맨 위로 이동
         all_fields = [
+            ("barcode", "바코드"),
             ("location", "위치"),
             ("purchase_date", "구매일"),
             ("sale_date", "판매일"),
             ("model_name", "모델명"),
             ("name", "제품명"),
             ("size", "사이즈"),
-            ("barcode", "바코드"),
             ("vendor", "구매처"),
             ("price", "가격"),
             ("notes", "메모")
