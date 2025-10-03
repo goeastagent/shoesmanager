@@ -1217,8 +1217,11 @@ class SellDialog:
         self.barcode_entry = ttk.Entry(main_frame, textvariable=self.barcode_var, width=40)
         self.barcode_entry.grid(row=0, column=1, sticky=tk.W+tk.E, pady=5)
         
-        # 바코드 변경 이벤트
+        # 바코드 변경 이벤트 (입력 완료 감지용)
         self.barcode_var.trace_add('write', self.on_barcode_changed)
+        
+        # 키보드 이벤트 바인딩 (Enter 키로 검색)
+        self.barcode_entry.bind('<Return>', lambda e: self.search_items())
         
         # 검색 버튼
         ttk.Button(main_frame, text="검색", command=self.search_items).grid(row=0, column=2, padx=5)
@@ -1262,7 +1265,10 @@ class SellDialog:
         """바코드 변경 시 자동 검색"""
         barcode = self.barcode_var.get().strip()
         if len(barcode) >= 5:  # 5자리 이상일 때만 자동 검색
-            self.search_items()
+            # 바코드 입력이 완료되었는지 확인 (일정 시간 후 검색)
+            if hasattr(self, '_search_timer'):
+                self.dialog.after_cancel(self._search_timer)
+            self._search_timer = self.dialog.after(500, self.search_items)  # 0.5초 후 검색
     
     def search_items(self):
         """재고 항목 검색"""
