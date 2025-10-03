@@ -129,9 +129,9 @@ dmypy.json
 .pyre/
 
 # Project specific
-*.db
-*.sqlite
-*.sqlite3
+# *.db
+# *.sqlite
+# *.sqlite3
 
 # IDE
 .vscode/

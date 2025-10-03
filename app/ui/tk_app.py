@@ -1136,6 +1136,22 @@ class ItemDialog:
                         self.vars["price"].set(str(latest_item.price) if latest_item.price else '')
                     if not self.vars["vendor"].get().strip():
                         self.vars["vendor"].set(latest_item.vendor)
+                else:
+                    # 바코드가 저장되어 있지 않으면 사용자에게 알림
+                    # 기존 필드들을 비워두고 새로 입력하도록 함
+                    if not self.vars["model_name"].get().strip():
+                        self.vars["model_name"].set("")
+                    if not self.vars["name"].get().strip():
+                        self.vars["name"].set("")
+                    if not self.vars["size"].get().strip():
+                        self.vars["size"].set("")
+                    if not self.vars["price"].get().strip():
+                        self.vars["price"].set("")
+                    if not self.vars["vendor"].get().strip():
+                        self.vars["vendor"].set("")
+                    
+                    # 상태 표시 (선택사항)
+                    print(f"새로운 바코드: {barcode} - 수동으로 정보를 입력해주세요.")
                         
         except Exception as e:
             # 바코드 조회 실패는 무시 (사용자 입력 중일 수 있음)
